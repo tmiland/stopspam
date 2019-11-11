@@ -198,6 +198,7 @@ update_all()
     if [ "$?" = "2" ]; then
         setup_spam_list "$SPAM_IP_FULL_LIST" "$SPAM_IP_LIST"
         append_spamhaus
+        append_abuseipdb
     fi
 
     update_spam_list "$TOXIC_IP_LIST" "$TOXIC_DB_URL"
@@ -291,6 +292,26 @@ append_spamhaus()
         cat "$TMP_FILE" >> "$SPAM_IP_LIST"
 
         wget -O "$TMP_FILE" --no-check-certificate "$SPAMHAUS_EDROP" > /dev/null 2>&1
+        cat "$TMP_FILE" >> "$SPAM_IP_LIST"
+    fi
+
+    rm "$TMP_FILE"
+}
+
+append_abuseipdb()
+{
+    if ! $ENABLE_ABUSEIPDB; then
+        return 0
+    fi
+
+    TMP_FILE=$(mktemp -u /tmp/stopspamab.XXXXXXXX)
+
+    if [ "$UPDATE_DB_INTERACTIVE" -eq 1 ]; then
+        echo "Starting abuseipdb blocklist download..."
+        wget -O "$TMP_FILE" --no-check-certificate "$ABUSEIPDB_DROP"
+        cat "$TMP_FILE" >> "$SPAM_IP_LIST"
+    else
+        wget -O "$TMP_FILE" --no-check-certificate "$ABUSEIPDB_DROP" > /dev/null 2>&1
         cat "$TMP_FILE" >> "$SPAM_IP_LIST"
     fi
 
