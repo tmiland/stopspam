@@ -103,9 +103,25 @@ ignore_list() {
 # param1 The ip address to block
 ban_ip() {
   if ! echo "$1" | grep ":">/dev/null; then
-    $IPT -I INPUT -s "$1" -j DROP
+      if [ "$FIREWALL" = "apf" ]; then
+          $APF -d "$1"
+      elif [ "$FIREWALL" = "csf" ]; then
+          $CSF -d "$1" "StopSpam database hit"
+      elif [ "$FIREWALL" = "ipfw" ]; then
+          rule_number=$(ipfw list | tail -1 | awk '/deny/{print $1}')
+          next_number=$((rule_number + 1))
+          $IPF -q add "$next_number" deny all from "$1" to any
+      elif [ "$FIREWALL" = "iptables" ]; then
+          $IPT -I INPUT -s "$1" -j DROP
+      fi
   else
-    $IPT6 -I INPUT -s "$1" -j DROP
+      if [ "$FIREWALL" = "ipfw" ]; then
+          rule_number=$(ipfw list | tail -1 | awk '/deny/{print $1}')
+          next_number=$((rule_number + 1))
+          $IPF -q add "$next_number" deny all from "$1" to any
+      else
+          $IPT6 -I INPUT -s "$1" -j DROP
+      fi
   fi
 
   if $SAVE_COUNTRY; then
@@ -130,13 +146,27 @@ ban_ip() {
 unban_ip()
 {
   if [ "$1" = "" ]; then
-    return 1
+      return 1
   fi
 
   if ! echo "$1" | grep ":">/dev/null; then
-    $IPT -D INPUT -s "$1" -j DROP
+      if [ "$FIREWALL" = "apf" ]; then
+          $APF -u "$1"
+      elif [ "$FIREWALL" = "csf" ]; then
+          $CSF -dr "$1"
+      elif [ "$FIREWALL" = "ipfw" ]; then
+          rule_number=$($IPF list | awk "/$1/{print $1}")
+          $IPF -q delete "$rule_number"
+      elif [ "$FIREWALL" = "iptables" ]; then
+          $IPT -D INPUT -s "$1" -j DROP
+      fi
   else
-    $IPT6 -D INPUT -s "$1" -j DROP
+      if [ "$FIREWALL" = "ipfw" ]; then
+          rule_number=$($IPF list | awk "/$1/{print $1}")
+          $IPF -q delete "$rule_number"
+      else
+          $IPT6 -D INPUT -s "$1" -j DROP
+      fi
   fi
 
   log_msg "unbanned $1"
@@ -453,6 +483,9 @@ daemon_loop() {
   trap 'on_daemon_exit' TERM
   trap 'on_daemon_exit' EXIT
 
+  echo "Detecting firewall..."
+  detect_firewall
+
   # run clean_ban_list after 2 minutes of initialization
   ban_check_timer=$(date +"%s")
   ban_check_timer=$((ban_check_timer+120))
@@ -486,6 +519,41 @@ daemon_status() {
   fi
 }
 
+detect_firewall() {
+    if [ "$FIREWALL" = "auto" ] || [ "$FIREWALL" = "" ]; then
+        apf_where=$(whereis apf);
+        csf_where=$(whereis csf);
+        ipf_where=$(whereis ipfw);
+        ipt_where=$(whereis iptables);
+
+        if [ -e "$APF" ]; then
+            FIREWALL="apf"
+        elif [ -e "$CSF" ]; then
+            FIREWALL="csf"
+        elif [ -e "$IPF" ]; then
+            FIREWALL="ipfw"
+        elif [ -e "$IPT" ]; then
+            FIREWALL="iptables"
+        elif [ "$apf_where" != "apf:" ]; then
+            FIREWALL="apf"
+            APF="apf"
+        elif [ "$csf_where" != "csf:" ]; then
+            FIREWALL="csf"
+            CSF="csf"
+        elif [ "$ipf_where" != "ipfw:" ]; then
+            FIREWALL="ipfw"
+            IPF="ipfw"
+        elif [ "$ipt_where" != "iptables:" ]; then
+            FIREWALL="iptables"
+            IPT="iptables"
+        else
+            echo "error: No valid firewall found."
+            log_msg "error: no valid firewall found"
+            exit 1
+        fi
+    fi
+}
+
 CONF_PATH="/etc/stopspam/"
 
 # Default settings
@@ -497,7 +565,12 @@ UPDATE_INTERVAL=48
 SAVE_COUNTRY=true
 BAN_PERIOD=600
 DAEMON_FREQ=3
-
+APF="/usr/sbin/apf"
+CSF="/usr/sbin/csf"
+IPF="/sbin/ipfw"
+IPT="/sbin/iptables"
+IPT6="/sbin/ip6tables"
+FIREWALL="auto"
 # Load user settings
 load_conf
 
