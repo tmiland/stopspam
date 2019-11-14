@@ -308,10 +308,10 @@ append_abuseipdb()
 
     if [ "$UPDATE_DB_INTERACTIVE" -eq 1 ]; then
         echo "Starting abuseipdb blocklist download..."
-        wget -O "$TMP_FILE" --no-check-certificate "$ABUSEIPDB_DROP"
+        curl -o "$TMP_FILE" "$ABUSEIPDB_DROP"
         cat "$TMP_FILE" >> "$SPAM_IP_LIST"
     else
-        wget -O "$TMP_FILE" --no-check-certificate "$ABUSEIPDB_DROP" > /dev/null 2>&1
+        curl -o "$TMP_FILE" "$ABUSEIPDB_DROP" > /dev/null 2>&1
         cat "$TMP_FILE" >> "$SPAM_IP_LIST"
     fi
 
