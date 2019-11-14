@@ -198,10 +198,11 @@ update_all()
     if [ "$?" = "2" ]; then
         setup_spam_list "$SPAM_IP_FULL_LIST" "$SPAM_IP_LIST"
         append_spamhaus
-        append_abuseipdb
     fi
 
     update_spam_list "$TOXIC_IP_LIST" "$TOXIC_DB_URL"
+    
+    append_abuseipdb
 }
 
 # Downloads a given url in txt or zip format and stores it
