@@ -198,7 +198,6 @@ update_all() {
 
   update_spam_list "$TOXIC_IP_LIST" "$TOXIC_DB_URL"
   append_abuseipdb
-  remove_duplicates
 }
 
 # Downloads a given url in txt or zip format and stores it
@@ -310,6 +309,7 @@ append_abuseipdb() {
   fi
 
   rm "$TMP_FILE"
+  remove_duplicates
 }
 
 # Use the $SPAM_IP_FULL_LIST to generate the $SPAM_IP_LIST taking
